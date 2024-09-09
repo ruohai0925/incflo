@@ -17,9 +17,12 @@ void incflo::MakeEBGeometry()
 
     std::string geom_type;
     std::string csg_file;
+    std::string stl_file;
     pp.query("geometry", geom_type);
     pp.query("geometry_filename", csg_file);
     amrex::Print() << "incflo.geometry_filename: " << csg_file;
+    pp.query("geometry_stl_file", stl_file);
+    amrex::Print() << "incflo.geometry_stl_file: " << stl_file;
 
 #ifndef CSG_EB
     AMREX_ALWAYS_ASSERT_WITH_MESSAGE( csg_file.empty(), "CSG Geometry defined in input deck but solver not built with CSG support!");
@@ -83,6 +86,10 @@ void incflo::MakeEBGeometry()
       make_eb_csg(csg_file);
     }
 #endif
+    else if(!stl_file.empty()){
+        amrex::Print() << "\n Building geometry from .stl file: " << stl_file << std::endl;
+        make_eb_stl(stl_file);
+    }
     else
     {
     amrex::Print() << "\n No EB geometry declared in inputs => "

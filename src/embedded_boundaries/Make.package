@@ -11,6 +11,7 @@ ifeq ($(DIM), 3)
   CEXE_sources += eb_tuscan.cpp
   CEXE_sources += eb_twocylinders.cpp
 endif
+CEXE_sources += eb_stl.cpp
 CEXE_sources += writeEBsurface.cpp
 
 CEXE_headers += eb_if.H

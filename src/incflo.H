@@ -901,6 +901,7 @@ private:
 #ifdef CSG_EB
     void make_eb_csg (const std::string& csg_file);
 #endif
+    void make_eb_stl (const std::string& stl_file);
 #endif
 
     ///////////////////////////////////////////////////////////////////////////
