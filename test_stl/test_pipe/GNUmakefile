@@ -1,6 +1,6 @@
-AMREX_HOME ?= ../../amrex
-AMREX_HYDRO_HOME ?= ../../AMReX-Hydro
-TOP = ..
+AMREX_HOME ?= ../../../amrex
+AMREX_HYDRO_HOME ?= ../../../AMReX-Hydro
+TOP = ../..
 
 EBASE = incflo
 
@@ -25,4 +25,4 @@ USE_EB = TRUE
 
 USE_CSG = FALSE
 
-include ../src/Make.incflo
+include ../../src/Make.incflo
