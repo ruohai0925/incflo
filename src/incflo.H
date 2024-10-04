@@ -123,6 +123,8 @@ public:
     amrex::iMultiFab make_nodalBC_mask (int lev);
     amrex::Vector<amrex::MultiFab> make_robinBC_MFs(int lev, amrex::MultiFab* state = nullptr);
 
+    void set_inflow_velocity (int lev, amrex::Real time, amrex::MultiFab& vel, int nghost);
+
 #ifdef AMREX_USE_EB
     void set_eb_velocity (int lev, amrex::Real time, amrex::MultiFab& eb_vel, int nghost);
     void set_eb_density (int lev, amrex::Real time, amrex::MultiFab& eb_density, int nghost);
@@ -249,6 +251,9 @@ public:
                                       amrex::Array4<amrex::Real const> const& bcval,
                                       int lev);
 
+    void prob_set_inflow_velocity (int grid_id, amrex::Orientation ori, amrex::Box const& bx,
+                                   amrex::Array4<amrex::Real> const& v, int lev, amrex::Real time);
+
 #include "incflo_prob_I.H"
 #include "incflo_prob_usr_I.H"
 
@@ -258,15 +263,31 @@ public:
     //
     ///////////////////////////////////////////////////////////////////////////
 
-    void ApplyProjection(amrex::Vector<amrex::MultiFab const*> density,
-                         amrex::Real time, amrex::Real scaling_factor, bool incremental);
-    void ApplyNodalProjection(amrex::Vector<amrex::MultiFab const*> density,
-                              amrex::Real time, amrex::Real scaling_factor, bool incremental);
-    void ApplyNodalProjection(amrex::Vector<amrex::MultiFab const*> const& density,
-                              amrex::Vector<amrex::MultiFab      *>        vel,
-                              amrex::Vector<amrex::MultiFab      *> const& divu_Source,
-                              amrex::Real time, amrex::Real scaling_factor, bool incremental,
-                              bool set_inflow_bc);
+    void ApplyProjection (             amrex::Vector<amrex::MultiFab const*> const& density,
+                          AMREX_D_DECL(amrex::Vector<amrex::MultiFab*> const& u_mac,
+                                       amrex::Vector<amrex::MultiFab*> const& v_mac,
+                                       amrex::Vector<amrex::MultiFab*> const& w_mac),
+                          amrex::Real time, amrex::Real scaling_factor, bool incremental);
+
+    void ApplyProjection (amrex::Vector<amrex::MultiFab const*> const& density,
+                          amrex::Vector<amrex::MultiFab      *> const& vel,
+                          amrex::Vector<amrex::MultiFab      *> const& divu_Source,
+                          amrex::Real time, amrex::Real scaling_factor, bool incremental,
+                          bool set_inflow_bc);
+
+    void ApplyNodalProjection (amrex::Vector<amrex::MultiFab const*> density,
+                               amrex::Real time, amrex::Real scaling_factor, bool incremental);
+    void ApplyNodalProjection (amrex::Vector<amrex::MultiFab const*> const& density,
+                               amrex::Vector<amrex::MultiFab      *>        vel,
+                               amrex::Vector<amrex::MultiFab      *> const& divu_Source,
+                               amrex::Real time, amrex::Real scaling_factor, bool incremental,
+                               bool set_inflow_bc);
+
+    void ApplyCCProjection (amrex::Vector<amrex::MultiFab const*> density,
+                            AMREX_D_DECL(amrex::Vector<amrex::MultiFab*> const& u_mac,
+                                         amrex::Vector<amrex::MultiFab*> const& v_mac,
+                                         amrex::Vector<amrex::MultiFab*> const& w_mac),
+                            amrex::Real time, amrex::Real scaling_factor, bool incremental);
 
     ///////////////////////////////////////////////////////////////////////////
     //
@@ -327,13 +348,16 @@ private:
     // Be verbose?
     int m_verbose = 0;
 
+    // number of tracers
+    int m_ntrac = 1;
+
     // Member variables for initial conditions
     int m_probtype = 0;
     amrex::Real m_ic_u = amrex::Real(0.0);
     amrex::Real m_ic_v = amrex::Real(0.0);
     amrex::Real m_ic_w = amrex::Real(0.0);
     amrex::Real m_ic_p = amrex::Real(0.0);
-    amrex::Real m_ic_t = amrex::Real(0.0);
+    amrex::Vector<amrex::Real> m_ic_t = amrex::Vector<amrex::Real> (m_ntrac, amrex::Real(0.0));
 
     amrex::Vector<amrex::Real> m_t_old;
     amrex::Vector<amrex::Real> m_t_new;
@@ -505,6 +529,9 @@ private:
     //    use gradient of mac phi which contains the full pressure
     bool m_use_mac_phi_in_godunov = false;
 
+    // If true use CC projection; if false use nodal projection
+    bool m_use_cc_proj = false;
+
     enum struct DiffusionType {
         Invalid, Explicit, Crank_Nicolson, Implicit
     };
@@ -551,7 +578,7 @@ private:
     int m_plt_gpz         = 1;
     int m_plt_rho         = 1;
     int m_plt_tracer      = 1;
-    int m_plt_p_nd        = 0;
+    int m_plt_p           = 0;
     int m_plt_macphi      = 0;
     int m_plt_eta         = 0;
     int m_plt_magvel      = 1;
@@ -612,7 +639,8 @@ private:
 
         amrex::MultiFab mac_phi; // cell-centered pressure used in MAC projection
 
-        // nodal pressure multifab
+        // Pressure MultiFabs (only one will actually be used)
+        amrex::MultiFab p_cc;
         amrex::MultiFab p_nd;
 
         // cell-centered pressure gradient
@@ -669,8 +697,6 @@ private:
     amrex::Gpu::DeviceVector<int> m_iconserv_density_d;
     amrex::Vector<int> m_iconserv_tracer;
     amrex::Gpu::DeviceVector<int> m_iconserv_tracer_d;
-
-    int m_ntrac = 1;
 
     std::unique_ptr<DiffusionTensorOp> m_diffusion_tensor_op;
     std::unique_ptr<DiffusionScalarOp> m_diffusion_scalar_op;
@@ -818,7 +844,7 @@ private:
         return m_bcrec_force_d.data(); }
 
     [[nodiscard]] amrex::Array<amrex::LinOpBCType,AMREX_SPACEDIM>
-    get_nodal_projection_bc (amrex::Orientation::Side side) const noexcept;
+    get_projection_bc (amrex::Orientation::Side side) const noexcept;
     [[nodiscard]] amrex::Array<amrex::LinOpBCType,AMREX_SPACEDIM>
     get_mac_projection_bc (amrex::Orientation::Side side) const noexcept;
 
@@ -829,7 +855,7 @@ private:
     get_diffuse_tensor_bc (amrex::Orientation::Side side) const noexcept;
 
     [[nodiscard]] amrex::Array<amrex::LinOpBCType,AMREX_SPACEDIM>
-    get_diffuse_scalar_bc (amrex::Orientation::Side side) const noexcept;
+    get_diffuse_scalar_bc (amrex::Orientation::Side side, const int* bcr) const noexcept;
 
     void fillpatch_velocity (int lev, amrex::Real time, amrex::MultiFab& vel, int ng);
     void fillpatch_density (int lev, amrex::Real time, amrex::MultiFab& density, int ng);

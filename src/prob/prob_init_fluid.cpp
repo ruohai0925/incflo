@@ -10,7 +10,9 @@ void incflo::prob_init_fluid (int lev)
     auto const& problo = geom[lev].ProbLoArray();
     auto const& probhi = geom[lev].ProbHiArray();
 
+    ld.p_cc.setVal(0.0);
     ld.p_nd.setVal(0.0);
+
     ld.gp.setVal(0.0);
 
     ld.density.setVal(m_ro_0);
@@ -20,7 +22,9 @@ void incflo::prob_init_fluid (int lev)
                  ld.velocity.setVal(m_ic_v, 1, 1);,
                  ld.velocity.setVal(m_ic_w, 2, 1););
 
-    if (m_ntrac > 0) ld.tracer.setVal(0.0);
+    for (int comp = 0; comp < m_ntrac; comp++) {
+        ld.tracer.setVal(m_ic_t[comp], comp, 1);
+    }
 
     for (MFIter mfi(ld.density); mfi.isValid(); ++mfi)
     {
