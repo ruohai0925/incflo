@@ -309,7 +309,7 @@ void incflo::ReadIOParameters()
         Warning("amr.plt_* is depreciated. Please use amr.plotVariables");
         update_plotVars("tracer",plt_var);
     }
-    if ( pp.query("plt_p   ",       plt_var ) ) {
+    if ( pp.query("plt_p",       plt_var ) ) {
         Warning("amr.plt_* is depreciated. Please use amr.plotVariables");
         update_plotVars("p",plt_var);
     }
