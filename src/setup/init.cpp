@@ -309,7 +309,7 @@ void incflo::ReadIOParameters()
         Warning("amr.plt_* is depreciated. Please use amr.plotVariables");
         update_plotVars("tracer",plt_var);
     }
-    if ( pp.query("plt_p   ",       plt_var ) ) {
+    if ( pp.query("plt_p",       plt_var ) ) {
         Warning("amr.plt_* is depreciated. Please use amr.plotVariables");
         update_plotVars("p",plt_var);
     }
@@ -486,8 +486,11 @@ void incflo::InitialProjection()
     // We set p and gp back to zero (p0 may still be still non-zero)
     for (int lev = 0; lev <= finest_level; lev++)
     {
-        m_leveldata[lev]->p_nd.setVal(0.0);
-        m_leveldata[lev]->p_cc.setVal(0.0);
+        if (m_use_cc_proj) {
+            m_leveldata[lev]->p_cc.setVal(0.0);
+        } else {
+            m_leveldata[lev]->p_nd.setVal(0.0);
+        }
         m_leveldata[lev]->gp.setVal(0.0);
     }
 }
