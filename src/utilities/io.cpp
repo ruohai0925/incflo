@@ -93,6 +93,11 @@ void incflo::WriteCheckPointFile() const
                          amrex::MultiFabFileFullPrefix(lev, checkpointname, level_prefix, "tracer"));
         }
 
+        if (m_use_temperature) {
+            VisMF::Write(m_leveldata[lev]->temperature,
+                         amrex::MultiFabFileFullPrefix(lev, checkpointname, level_prefix, "temperature"));
+        }
+
         VisMF::Write(m_leveldata[lev]->gp,
                      amrex::MultiFabFileFullPrefix(lev, checkpointname, level_prefix, "gradp"));
 
@@ -193,21 +198,17 @@ void incflo::ReadCheckpointFile()
                                   Geom(lev).isPeriodic()));
     }
 
-    if ( m_regrid_on_restart ) {
-        MakeNewGrids(m_cur_time);
-    } else {
-        for(int lev = 0; lev <= finest_level; ++lev)
-        {
-            // read in level 'lev' BoxArray from Header
-            BoxArray ba;
-            ba.readFrom(is);
-            GotoNextLine(is);
+    for(int lev = 0; lev <= finest_level; ++lev)
+    {
+        // read in level 'lev' BoxArray from Header
+        BoxArray ba;
+        ba.readFrom(is);
+        GotoNextLine(is);
 
-            // Create distribution mapping
-            DistributionMapping dm{ba, ParallelDescriptor::NProcs()};
+        // Create distribution mapping
+        DistributionMapping dm{ba, ParallelDescriptor::NProcs()};
 
-            MakeNewLevelFromScratch(lev, m_cur_time, ba, dm);
-        }
+        MakeNewLevelFromScratch(lev, m_cur_time, ba, dm);
     }
 
     /***************************************************************************
@@ -228,6 +229,11 @@ void incflo::ReadCheckpointFile()
                         amrex::MultiFabFileFullPrefix(lev, m_restart_file, level_prefix, "tracer"));
         }
 
+        if (m_use_temperature) {
+            VisMF::Read(m_leveldata[lev]->temperature,
+                        amrex::MultiFabFileFullPrefix(lev, m_restart_file, level_prefix, "temperature"));
+        }
+
         VisMF::Read(m_leveldata[lev]->gp,
                     amrex::MultiFabFileFullPrefix(lev, m_restart_file, level_prefix, "gradp"));
 
@@ -243,6 +249,10 @@ void incflo::ReadCheckpointFile()
 #ifdef INCFLO_USE_PARTICLES
    particleData.Restart((ParGDBBase*)GetParGDB(),m_restart_file);
 #endif
+
+    if ( m_regrid_on_restart ) {
+        regrid(0, m_cur_time);
+    }
 
     amrex::Print() << "Restart complete" << std::endl;
 }
@@ -384,6 +394,8 @@ void incflo::WritePlotVariables(Vector<std::string> vars, const std::string& plo
                 fillpatch_velocity(lev, m_cur_time, m_leveldata[lev]->velocity, ng);
                 fillpatch_density(lev, m_cur_time, m_leveldata[lev]->density, ng);
                 fillpatch_tracer(lev, m_cur_time, m_leveldata[lev]->tracer, ng);
+                // Whether temperature fillpatch is needed depends on form of forcing term
+                // fillpatch_temperature(lev, m_cur_time, m_leveldata[lev]->temperature, ng);
             }
             break;
         }
@@ -492,6 +504,13 @@ void incflo::WritePlotVariables(Vector<std::string> vars, const std::string& plo
                 pltscaVarsName.push_back("tracer"+std::to_string(i));
             }
             icomp += m_ntrac;
+        }
+        else if (vars[n] == "temperature") {
+            for (int lev = 0; lev <= finest_level; ++lev) {
+                MultiFab::Copy(mf[lev], m_leveldata[lev]->temperature, 0, icomp, 1, 0);
+            }
+            pltscaVarsName.push_back("temperature");
+            ++icomp;
         }
         else if (vars[n] == "p") {
             if (m_use_cc_proj) {
