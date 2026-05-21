@@ -154,9 +154,9 @@ void incflo::ReadParameters ()
         m_mu_s.resize(m_ntrac, 0.0);
         pp.queryarr("mu_s", m_mu_s, 0, m_ntrac );
 
-        amrex::Print() << "Scalar diffusion coefficients " << std::endl;
+        amrex::Print() << "Scalar diffusion coefficients\n";
         for (int i = 0; i < m_ntrac; i++) {
-            amrex::Print() << "Tracer diffusion coeff: " << i << ":" << m_mu_s[i] << std::endl;
+            amrex::Print() << "Tracer diffusion coeff: " << i << ":" << m_mu_s[i] << "\n";
         }
 
         pp.query("use_temperature", m_use_temperature);
@@ -222,7 +222,7 @@ void incflo::ReadParameters ()
 
           amrex::Real tol_deg(0.);
           pp_eb_flow.query("normal_tol", tol_deg);
-          m_eb_flow.normal_tol = tol_deg*M_PI/amrex::Real(180.);
+          m_eb_flow.normal_tol = tol_deg*amrex::Real(M_PI)/amrex::Real(180);
        }
 
        if (m_advect_tracer && m_eb_flow.enabled && m_eb_flow.tracer.empty()) {
@@ -448,7 +448,7 @@ void incflo::InitialIterations ()
 
     if (m_verbose && m_initial_iterations > 0)
     {
-        amrex::Print() << "Doing initial pressure iterations with dt = " << m_dt << std::endl;
+        amrex::Print() << "Doing initial pressure iterations with dt = " << m_dt << "\n";
     }
 
     auto mac_phi = get_mac_phi();

@@ -9,7 +9,7 @@ void incflo::update_temperature (StepType step_type, Vector<MultiFab>& tem_eta, 
     if (!m_use_temperature) { return; }
 
     Real const  new_time = m_cur_time + m_dt;
-    Real const half_time = m_cur_time + m_dt/2.;
+    Real const half_time = m_cur_time + m_dt * Real(0.5);
 
     // *************************************************************************************
     // Compute the temperature forcing terms
@@ -67,7 +67,7 @@ void incflo::update_temperature (StepType step_type, Vector<MultiFab>& tem_eta, 
                 }
                 else if (m_diff_type == DiffusionType::Crank_Nicolson)
                 {
-                    Array4<Real const> const& laps_o = ld.laps_o.const_array(mfi);
+                    Array4<Real const> const& laps_o = ld.laps_tem_o.const_array(mfi);
 
                     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
                     {
@@ -83,7 +83,7 @@ void incflo::update_temperature (StepType step_type, Vector<MultiFab>& tem_eta, 
                     ParallelFor(bx, [=] AMREX_GPU_DEVICE (int i, int j, int k) noexcept
                     {
                         tem(i,j,k) = tem_o(i,j,k) + l_dt *
-                            (dtdt_o(i,j,k) + tem_f(i,j,k)) / (rho_h(i,j,k) * cp(i,j,k));
+                            (dtdt_o(i,j,k) + tem_f(i,j,k) / (rho_h(i,j,k) * cp(i,j,k)));
                         // Save rhoCp for use in implicit solve.
                         // Reuse scratch space since we are done with forcing now.
                         tem_f(i,j,k) = rho_h(i,j,k) * cp(i,j,k);
@@ -116,10 +116,10 @@ void incflo::update_temperature (StepType step_type, Vector<MultiFab>& tem_eta, 
         for (int lev = finest_level-1; lev >= 0; --lev) {
 #ifdef AMREX_USE_EB
             amrex::EB_average_down(m_leveldata[lev+1]->temperature, m_leveldata[lev]->temperature,
-                                   0, m_ntrac, refRatio(lev));
+                                   0, 1, refRatio(lev));
 #else
             amrex::average_down(m_leveldata[lev+1]->temperature, m_leveldata[lev]->temperature,
-                                0, m_ntrac, refRatio(lev));
+                                0, 1, refRatio(lev));
 #endif
         }
     }
