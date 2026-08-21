@@ -64,16 +64,14 @@ zlo.type = "nsw"
 zlo.velocity = 0.0 0.0 0.0
 
 # Add geometry
-incflo.geometry_stl_file = "pipe.stl"
-stl.prob_lo              = 0. 0. 0.
-stl.prob_hi              = 5. 1. 1.
-eb2.geom_type            = stl
-eb2.stl_file             = pipe.stl
-# more than 2 cuts 
-eb2.cover_multiple_cuts = 1
-eb2.stl_scale            = 1
-eb2.stl_center           = -0.5 0 0
-eb2.stl_reverse_normal   = 1
+incflo.geometry          = stl
+stl.geometry_filename    = pipe.stl
+stl.scaling_factor       = 1.
+stl.translation          = -0.5 0. 0.
+# flip the normals: the fluid is inside the STL surface
+stl.internal_flow        = 1
+# more than 2 cuts
+eb2.cover_multiple_cuts  = 1
 
 #¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨#
 #           INITIAL CONDITIONS          #

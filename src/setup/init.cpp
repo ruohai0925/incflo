@@ -27,6 +27,12 @@ void incflo::ReadParameters ()
         pp.query("refine_particles", m_refine_particles);
 #endif
         pp.query("KE_int", m_KE_int);
+        if (m_KE_int > 0) {
+            // ComputeKineticEnergy() is not implemented (its body is #if 0'd and it
+            // returns 0), so refuse the option here rather than printing a zero as if
+            // it were a real diagnostic.  Checked here so that restarts refuse it too.
+            amrex::Abort("incflo.KE_int > 0: ComputeKineticEnergy() is not implemented yet");
+        }
 
     } // end prefix amr
 
@@ -227,6 +233,13 @@ void incflo::ReadParameters ()
 
        if (m_advect_tracer && m_eb_flow.enabled && m_eb_flow.tracer.empty()) {
            Abort("Must specify tracer EB value for flow through EB");
+       }
+       // set_eb_tracer reads m_eb_flow.tracer[n] for every n < m_ntrac, and is
+       // called whenever the list is non-empty -- whether or not eb_flow itself
+       // is enabled -- so the list must have exactly ntrac entries.
+       if (!m_eb_flow.tracer.empty() &&
+           static_cast<int>(m_eb_flow.tracer.size()) != m_ntrac) {
+           Abort("eb_flow.tracer must have exactly ntrac values");
        }
        if (m_use_temperature && m_eb_flow.enabled && m_eb_flow.temperature.empty()) {
            Abort("Must specify temperature EB value for flow through EB");
@@ -437,10 +450,22 @@ void incflo::InitialIterations ()
 {
     BL_PROFILE("incflo::InitialIterations()");
 
-    copy_from_new_to_old_velocity();
-    copy_from_new_to_old_density();
-    copy_from_new_to_old_tracer();
-    copy_from_new_to_old_temperature();
+    int ng = nghost_state();
+    for (int lev = 0; lev <= finest_level; ++lev) {
+            fillpatch_velocity(lev, m_cur_time, m_leveldata[lev]->velocity, ng);
+        fillpatch_density(lev, m_cur_time, m_leveldata[lev]->density, ng);
+        if (m_advect_tracer) {
+            fillpatch_tracer(lev, m_cur_time, m_leveldata[lev]->tracer, ng);
+        }
+        if (m_use_temperature) {
+            fillpatch_temperature(lev, m_cur_time, m_leveldata[lev]->temperature, ng);
+        }
+    }
+
+    copy_from_new_to_old_velocity(IntVect(ng));
+    copy_from_new_to_old_density(IntVect(ng));
+    copy_from_new_to_old_tracer(IntVect(ng));
+    copy_from_new_to_old_temperature(IntVect(ng));
 
     int initialisation = 1;
     bool explicit_diffusion = (m_diff_type == DiffusionType::Explicit);
@@ -456,23 +481,11 @@ void incflo::InitialIterations ()
     for (int lev = 0; lev <= finest_level; ++lev) m_t_old[lev] = m_t_new[lev];
     for (int lev = 0; lev <= finest_level; ++lev) mac_phi[lev]->setVal(0.);
 
-    int ng = nghost_state();
-    for (int lev = 0; lev <= finest_level; ++lev) {
-            fillpatch_velocity(lev, m_t_old[lev], m_leveldata[lev]->velocity_o, ng);
-        fillpatch_density(lev, m_t_old[lev], m_leveldata[lev]->density_o, ng);
-        if (m_advect_tracer) {
-            fillpatch_tracer(lev, m_t_old[lev], m_leveldata[lev]->tracer_o, ng);
-        }
-        if (m_use_temperature) {
-            fillpatch_temperature(lev, m_t_old[lev], m_leveldata[lev]->temperature_o, ng);
-        }
-    }
-
     for (int iter = 0; iter < m_initial_iterations; ++iter)
     {
         if (m_verbose) amrex::Print() << "\n In initial_iterations: iter = " << iter << "\n";
 
-     ApplyPredictor(true);
+        ApplyPredictor(true);
 
         copy_from_old_to_new_velocity();
         copy_from_old_to_new_density();
